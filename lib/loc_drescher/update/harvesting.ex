@@ -4,19 +4,16 @@ defmodule LocDrescher.Update.Harvesting do
   @names_feed Application.get_env(:loc_drescher, :names_feed)
 
   def start(from) do
-    next_feed(1, from, @names_feed)
+    fetch_feed(1, from, @names_feed)
   end
 
-  def next_feed(index, from, url) do
-    atom_response =
+  def fetch_feed(index, from, url) do
+    { new_changes, old_changes } =
       "#{url}#{index}"
       |> start_query
       |> handle_response
-
-    dates =
-      atom_response
       |> xpath(~x"//entry"l)
-      |> Enum.map(fn (entry) ->
+      |> Enum.map(fn(entry) ->
           %{
             updated: entry |> xpath(~x"./updated/text()"),
             link: entry |> xpath(~x"./link[@type='application/marc+xml']/@href")
@@ -29,6 +26,19 @@ defmodule LocDrescher.Update.Harvesting do
           |> Timex.after?(from)
         end)
       |> IO.inspect
+
+      # Async: fetch entries
+
+      next_feed?(index + 1, from, url, old_changes)
+  end
+
+  defp next_feed?(index, from, url,  []) do
+    fetch_feed(index, from, url)
+  end
+
+  defp next_feed?(_index, _from, _url, _old_changes) do
+    # write info
+    System.halt()
   end
 
   defp start_query(url) do

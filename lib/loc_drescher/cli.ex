@@ -47,6 +47,8 @@ defmodule LocDrescher.CLI do
       { output_file_pid }
     end, name: OutputFile)
 
+    Update.Writing.open_xml(output_file_pid)
+
     case File.read(@last_update_info) do
       {:ok, content} ->
         content
@@ -57,6 +59,9 @@ defmodule LocDrescher.CLI do
         Timex.shift(Timex.now, days: -days_offset)
         |> Update.Harvesting.start
     end
+
+    Update.Writing.close_xml(output_file_pid)
+    # log_time
   end
 
   defp open_output_file(file) do
@@ -81,6 +86,11 @@ defmodule LocDrescher.CLI do
     Logger.error message
     Logger.error "requested offset was #{requested_offset}"
     System.halt()
+  end
+
+  defp log_time do
+    file_pid = open_output_file(@last_update_info)
+    IO.binwrite file_pid, Timex.format(Timex.now, "{ISO:Extended}")
   end
 
   defp print_help() do

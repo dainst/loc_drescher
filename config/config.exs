@@ -8,7 +8,11 @@ config :loc_drescher,
     update: "./output/loc_update.marcxml",
     import: "./output/loc_import.mrc"
   },
-  names_feed: "http://id.loc.gov/authorities/names/feed/",
+  subscribed_feeds:
+  %{
+    names: "http://id.loc.gov/authorities/names/feed/",
+    organizations: "http://id.loc.gov/vocabulary/organizations/feed/"
+  },
   last_update_info: "./loc_drescher.info"
 
 # This configuration is loaded before any dependency and is restricted

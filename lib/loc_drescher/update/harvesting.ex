@@ -1,14 +1,17 @@
 defmodule LocDrescher.Update.Harvesting do
   require Logger
   import SweetXml
-  @names_feed Application.get_env(:loc_drescher, :names_feed)
+  @subscribed_feeds Application.get_env(:loc_drescher, :subscribed_feeds)
 
   def start(from) do
-    fetch_feed(1, from, @names_feed)
+    @subscribed_feeds
+    |> Enum.map(fn({name, url}) ->
+        fetch_feed(url, 1, from)
+      end)
   end
 
-  def fetch_feed(index, from, url) do
-    { new_changes, old_changes } =
+  def fetch_feed(url, index, from) do
+    { relevant_changes, old_changes } =
       "#{url}#{index}"
       |> start_query
       |> handle_response
@@ -27,6 +30,12 @@ defmodule LocDrescher.Update.Harvesting do
         end)
       |> IO.inspect
 
+      relevant_changes
+      |> Enum.map(fn(link: link} ->
+          start_query(link)
+        end)
+      |> handle_response
+      |> IO.inspect
       # Async: fetch entries
 
       next_feed?(index + 1, from, url, old_changes)
@@ -37,8 +46,7 @@ defmodule LocDrescher.Update.Harvesting do
   end
 
   defp next_feed?(_index, _from, _url, _old_changes) do
-    # write info
-    System.halt()
+    { :ok, "top!" }
   end
 
   defp start_query(url) do

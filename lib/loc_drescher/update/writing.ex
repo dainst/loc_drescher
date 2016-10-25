@@ -3,7 +3,7 @@ defmodule LocDrescher.Update.Writing do
 
   import SweetXml
 
-  @opening_tag ~s(<?xml version="1.0" encoding="UTF-8" ?>) <>
+  @opening_tag ~s(<?xml version="1.0" encoding="UTF-8" ?> \n) <>
   ~s(<marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" ) <>
   ~s(xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ) <>
   ~s(xsi:schemaLocation="http://www.loc.gov/MARC21/slim" ) <>
@@ -16,7 +16,7 @@ defmodule LocDrescher.Update.Writing do
   ~s(xmlns:skos="http://www.w3.org/2004/02/skos/core#" ) <>
   ~s(xmlns:madsrdf="http://www.loc.gov/mads/rdf/v1#" ) <>
   ~s(xmlns:ri="http://id.loc.gov/ontologies/RecordInfo#" ) <>
-  ~s(xmlns:mets="http://www.loc.gov/METS/">)
+  ~s(xmlns:mets="http://www.loc.gov/METS/"> \n)
 
   @closing_tag ~s(</marc:collection>)
 
@@ -25,8 +25,13 @@ defmodule LocDrescher.Update.Writing do
   end
 
   def write_feed_item(item) do
-    item
-    |> IO.inspect
+    { file_pid } = Agent.get(OutputFile, &(&1))
+
+    clean_item =
+      item
+      |> String.replace(~r/(<marcxml:record).*(>)/, "<marcxml:record>")
+
+    IO.binwrite(file_pid, clean_item)
   end
 
   def close_xml(file_pid) do

@@ -39,7 +39,7 @@ defmodule LocDrescher.Update.Harvesting do
         }
       end)
     |> Enum.split_while(fn(%{updated: updated, link: link}) ->
-        if link = nil do
+        if link == nil do
           Logger.warn "No link type='application/marc+xml' found at #{link}!"
           false
         else
@@ -73,7 +73,7 @@ defmodule LocDrescher.Update.Harvesting do
 
   defp start_query(url) do
     url # application/atom+xml
-    |> HTTPoison.get([], [timeout: 20000, recv_timeout: 60000])
+    |> HTTPoison.get([], [ timeout: 20000, recv_timeout: 360000 ])
   end
 
   defp handle_response({ :ok, %HTTPoison.Response{ status_code: 200, body: body} } ) do

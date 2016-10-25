@@ -1,16 +1,22 @@
 defmodule LocDrescher.Update.Harvesting do
   require Logger
+
   import SweetXml
+
+  alias LocDrescher.Update.Writing
+
   @subscribed_feeds Application.get_env(:loc_drescher, :subscribed_feeds)
 
   def start(from) do
     @subscribed_feeds
-    |> Enum.map(fn({name, url}) ->
+    |> Enum.map(fn({key, url}) ->
+        Logger.info("Harvesting feeds for #{key}.")
         fetch_feed(url, 1, from)
       end)
   end
 
   def fetch_feed(url, index, from) do
+    Logger.info ~s(Next feed: #{"#{url}#{index}"})
     { relevant_changes, old_changes } =
       "#{url}#{index}"
       |> start_query
@@ -28,30 +34,30 @@ defmodule LocDrescher.Update.Harvesting do
           |> Timex.parse!("%FT%T%:z", :strftime)
           |> Timex.after?(from)
         end)
-      |> IO.inspect
+      # |> IO.inspect
 
       relevant_changes
-      |> Enum.map(fn(link: link} ->
+      |> Enum.map(fn(%{link: link}) ->
           start_query(link)
         end)
-      |> handle_response
-      |> IO.inspect
-      # Async: fetch entries
+      |> Enum.map(&handle_response(&1))
+      |> Enum.map(&Writing.write_feed_item(&1))
 
       next_feed?(index + 1, from, url, old_changes)
   end
 
   defp next_feed?(index, from, url,  []) do
-    fetch_feed(index, from, url)
+    fetch_feed(url, index, from)
   end
 
   defp next_feed?(_index, _from, _url, _old_changes) do
+    Logger.info("Reached old changes, stopping.")
     { :ok, "top!" }
   end
 
   defp start_query(url) do
     url # application/atom+xml
-    |> HTTPoison.get#(%{"Accept" => "application/atom+xml"})
+    |> HTTPoison.get([], [timeout: 20000, recv_timeout: 60000])
   end
 
   defp handle_response({ :ok, %HTTPoison.Response{ status_code: 200, body: body} } ) do

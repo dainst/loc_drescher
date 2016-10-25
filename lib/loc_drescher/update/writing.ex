@@ -24,7 +24,7 @@ defmodule LocDrescher.Update.Writing do
     IO.binwrite(file_pid, @opening_tag)
   end
 
-  def write_feed_item(item) do
+  def write_item_update(item) do
     { file_pid } = Agent.get(OutputFile, &(&1))
 
     clean_item =

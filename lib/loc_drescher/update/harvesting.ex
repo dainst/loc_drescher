@@ -9,49 +9,66 @@ defmodule LocDrescher.Update.Harvesting do
 
   def start(from) do
     @subscribed_feeds
-    |> Enum.map(fn({key, url}) ->
+    |> Stream.map(fn({key, url}) ->
         Logger.info("Harvesting feeds for #{key}.")
-        fetch_feed(url, 1, from)
+        url
       end)
+    |> Enum.map(&Task.async(fn -> fetch_feed(&1, 1, from) end))
+    |> Enum.map(&Task.await(&1, :infinity))
   end
 
   def fetch_feed(url, index, from) do
-    Logger.info ~s(Next feed: #{"#{url}#{index}"})
+    Logger.info ~s(Next page: #{"#{url}#{index}"})
     { relevant_changes, old_changes } =
       "#{url}#{index}"
-      |> start_query
-      |> handle_response
-      |> xpath(~x"//entry"l)
-      |> Enum.map(fn(entry) ->
-          %{
-            updated: entry |> xpath(~x"./updated/text()"),
-            link: entry |> xpath(~x"./link[@type='application/marc+xml']/@href")
-          }
-        end)
-      |> Enum.split_while(fn(%{updated: updated, link: link}) ->
+      |> split_feed(from)
+
+    chain = Task.async(fn -> next_feed?(index + 1, from, url, old_changes) end)
+    fetch_marcxml_records(relevant_changes)
+    Task.await(chain, :infinity)
+  end
+
+  defp split_feed(url, from) do
+    url
+    |> start_query
+    |> handle_response
+    |> xpath(~x"//entry"l)
+    |> Enum.map(fn(entry) ->
+        %{
+          updated: entry |> xpath(~x"./updated/text()"),
+          link: entry |> xpath(~x"./link[@type='application/marc+xml']/@href")
+        }
+      end)
+    |> Enum.split_while(fn(%{updated: updated, link: link}) ->
+        if link = nil do
+          Logger.warn "No link type='application/marc+xml' found at #{link}!"
+          false
+        else
           updated
           |> to_string
           |> Timex.parse!("%FT%T%:z", :strftime)
           |> Timex.after?(from)
-        end)
-      # |> IO.inspect
+        end
+      end)
+  end
 
-      relevant_changes
-      |> Enum.map(fn(%{link: link}) ->
-          start_query(link)
-        end)
-      |> Enum.map(&handle_response(&1))
-      |> Enum.map(&Writing.write_feed_item(&1))
-
-      next_feed?(index + 1, from, url, old_changes)
+  defp fetch_marcxml_records(urls) do
+    urls
+    |> Stream.map(fn(%{link: link}) ->
+        link
+      end)
+    |> Enum.map(&Task.async(fn -> start_query(&1) end))
+    |> Enum.map(&Task.await(&1, 360000))
+    |> Stream.map(&handle_response(&1))
+    |> Enum.map(&Writing.write_item_update(&1))
   end
 
   defp next_feed?(index, from, url,  []) do
     fetch_feed(url, index, from)
   end
 
-  defp next_feed?(_index, _from, _url, _old_changes) do
-    Logger.info("Reached old changes, stopping.")
+  defp next_feed?(index, _from, url, _old_changes) do
+    Logger.info("Reached old changes, stopping at: #{url}#{index - 1}")
     { :ok, "top!" }
   end
 

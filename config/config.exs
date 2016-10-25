@@ -11,7 +11,7 @@ config :loc_drescher,
   subscribed_feeds:
   %{
     names: "http://id.loc.gov/authorities/names/feed/",
-    organizations: "http://id.loc.gov/vocabulary/organizations/feed/"
+    subjects: "http://id.loc.gov/authorities/subjects/feed/"
   },
   last_update_info: "./loc_drescher.info"
 

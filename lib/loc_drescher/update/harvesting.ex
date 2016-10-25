@@ -10,7 +10,7 @@ defmodule LocDrescher.Update.Harvesting do
   def start(from) do
     @subscribed_feeds
     |> Stream.map(fn({key, url}) ->
-        Logger.info("Harvesting feeds for #{key}.")
+        Logger.info("Harvesting feed for #{key}.")
         url
       end)
     |> Enum.map(&Task.async(fn -> fetch_feed(&1, 1, from) end))
@@ -23,9 +23,8 @@ defmodule LocDrescher.Update.Harvesting do
       "#{url}#{index}"
       |> split_feed(from)
 
-    chain = Task.async(fn -> next_feed?(index + 1, from, url, old_changes) end)
     fetch_marcxml_records(relevant_changes)
-    Task.await(chain, :infinity)
+    next_feed_page?(index + 1, from, url, old_changes)
   end
 
   defp split_feed(url, from) do
@@ -63,11 +62,11 @@ defmodule LocDrescher.Update.Harvesting do
     |> Enum.map(&Writing.write_item_update(&1))
   end
 
-  defp next_feed?(index, from, url,  []) do
+  defp next_feed_page?(index, from, url,  []) do
     fetch_feed(url, index, from)
   end
 
-  defp next_feed?(index, _from, url, _old_changes) do
+  defp next_feed_page?(index, _from, url, _old_changes) do
     Logger.info("Reached old changes, stopping at: #{url}#{index - 1}")
     { :ok, "top!" }
   end
@@ -109,9 +108,9 @@ defmodule LocDrescher.Update.Harvesting do
     System.halt(0)
   end
 
-  defp handle_response({:error, %HTTPoison.Error{reason: reason}} ) do
+  defp handle_response({:error, message }) do
     Logger.error "HTTPoison error."
-    IO.inspect reason
+    IO.inspect message
 
     System.halt(0)
   end

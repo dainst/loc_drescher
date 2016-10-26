@@ -3,6 +3,8 @@ defmodule LocDrescher.Update.Writing do
 
   import SweetXml
 
+  alias LocDrescher.MARC.{Record, Field}
+
   @opening_tag ~s(<?xml version="1.0" encoding="UTF-8" ?> \n) <>
   ~s(<marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" ) <>
   ~s(xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ) <>
@@ -20,21 +22,65 @@ defmodule LocDrescher.Update.Writing do
 
   @closing_tag ~s(</marc:collection>)
 
-  def open_xml(file_pid) do
-    IO.binwrite(file_pid, @opening_tag)
-  end
-
-  def write_item_update(item) do
+  def write_item_update(record) do
     { file_pid } = Agent.get(OutputFile, &(&1))
 
-    clean_item =
-      item
-      |> String.replace(~r/(<marcxml:record).*(>)/, "<marcxml:record>")
-
-    IO.binwrite(file_pid, clean_item)
+    IO.binwrite(file_pid, record |> marcxml_to_marc)
   end
 
-  def close_xml(file_pid) do
-    IO.binwrite(file_pid, @closing_tag)
+  defp marcxml_to_marc(xml_record) do
+    xml_record
+    |> xpath(~x"./marcxml:controlfield[@tag='001']/text()")
+
+    record_status =
+      xml_record
+      |> xpath(~x"./marcxml:leader/text()")
+      |> to_string
+      |> String.at(5)
+
+    record = %Record{}
+
+    control_fields =
+      xml_record
+      |> xpath(~x"./marcxml:controlfield"l)
+      |> Enum.map(fn(field) ->
+          %Field{
+            tag: field |> xpath(~x"./@tag"),
+            controlfield_value: field |> xpath(~x"./text()")
+          }
+        end)
+
+    data_fields =
+      xml_record
+      |> xpath(~x"./marcxml:datafield"l)
+      |> Enum.map(fn(field) ->
+          %Field{
+            tag: field |> xpath(~x"./@tag"),
+            i1: field |> xpath(~x"./@ind1"),
+            i2: field |> xpath(~x"./@ind2"),
+            subfields:
+              field
+              |> xpath(~x"./marcxml:subfield"l)
+              |> Enum.map(fn(subfield) ->
+                  code = subfield |> xpath(~x"./@code"s)
+                  value = subfield |> xpath(~x"./text()")
+
+                  {String.to_atom(code), value}
+                end)
+            }
+          end)
+
+      record =
+        Enum.reduce(control_fields, record, fn(field, record) ->
+            Record.add_field(record, field)
+          end)
+
+      record =
+        Enum.reduce(data_fields, record, fn(field, record) ->
+            Record.add_field(record, field)
+          end)
+
+      record
+      |> Record.to_marc(record_status)
   end
 end

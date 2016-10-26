@@ -5,7 +5,7 @@ use Mix.Config
 config :loc_drescher,
   default_output_files:
   %{
-    update: "./output/loc_update.marcxml",
+    update: "./output/loc_update.mrc",
     import: "./output/loc_import.mrc"
   },
   subscribed_feeds:

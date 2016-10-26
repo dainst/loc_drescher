@@ -29,7 +29,7 @@ defmodule LocDrescher.Update.Harvesting do
 
   defp split_feed(url, from) do
     url
-    |> start_query
+    |> start_query(2)
     |> handle_response
     |> xpath(~x"//entry"l)
     |> Enum.map(fn(entry) ->
@@ -56,8 +56,8 @@ defmodule LocDrescher.Update.Harvesting do
     |> Stream.map(fn(%{link: link}) ->
         link
       end)
-    |> Enum.map(&Task.async(fn -> start_query(&1) end))
-    |> Enum.map(&Task.await(&1, 360000))
+    |> Enum.map(&Task.async(fn -> start_query(&1, 2) end))
+    |> Enum.map(&Task.await(&1, :infinity))
     |> Stream.map(&handle_response(&1))
     |> Enum.map(&Writing.write_item_update(&1))
   end
@@ -71,33 +71,38 @@ defmodule LocDrescher.Update.Harvesting do
     { :ok, "top!" }
   end
 
-  defp start_query(url) do
-    url # application/atom+xml
-    |> HTTPoison.get([], [ timeout: 20000, recv_timeout: 360000 ])
+  defp start_query(url, retry) do
+    response =
+      url # application/atom+xml
+      |> HTTPoison.get([], [ timeout: :infinity, recv_timeout: :infinity ])
+
+    {url, response, retry }
   end
 
-  defp handle_response({ :ok, %HTTPoison.Response{ status_code: 200, body: body} } ) do
+  defp handle_response({_url,
+      { :ok, %HTTPoison.Response{ status_code: 200, body: body} },
+      _retry }) do
     body
   end
 
-  defp handle_response({ :ok, %HTTPoison.Response{
+  defp handle_response({_url, { :ok, %HTTPoison.Response{
       status_code: 404,
       body: _body,
-      headers: _headers} } ) do
+      headers: _headers} }, _retry }) do
     { :error, 404 }
   end
 
-  defp handle_response({:ok, %HTTPoison.Response{
+  defp handle_response({_url, {:ok, %HTTPoison.Response{
       status_code: 403,
       body: _body,
-      headers: _headers} } ) do
+      headers: _headers} }, _retry }) do
     { :error, 403 }
   end
 
-  defp handle_response({ :ok, %HTTPoison.Response{
+  defp handle_response({_url, { :ok, %HTTPoison.Response{
       status_code: 500,
       body: body,
-      headers: headers} } ) do
+      headers: headers} }, _retry }) do
     Logger.error "Status code 500 in response."
     Logger.error "Headers:"
     Logger.error  headers
@@ -108,7 +113,21 @@ defmodule LocDrescher.Update.Harvesting do
     System.halt(0)
   end
 
-  defp handle_response({:error, message }) do
+  defp handle_response({url,
+      {:error, error = %HTTPoison.Error{id: nil, reason: :closed}},
+      retry}) do
+    if(retry > 0) do
+      url
+      |> start_query(retry - 1)
+      |> handle_response
+    else
+      Logger.error "HTTPoison error: :closed, no more retries."
+      IO.inspect message
+      System.halt(0)
+    end
+  end
+
+  defp handle_response({_url, {:error, message }, _retry}) do
     Logger.error "HTTPoison error."
     IO.inspect message
 

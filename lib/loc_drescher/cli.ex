@@ -47,8 +47,6 @@ defmodule LocDrescher.CLI do
       { output_file_pid }
     end, name: OutputFile)
 
-    Update.Writing.open_xml(output_file_pid)
-
     case File.read(@last_update_info) do
       {:ok, content} ->
         content
@@ -60,8 +58,7 @@ defmodule LocDrescher.CLI do
         |> Update.Harvesting.start
     end
 
-    Update.Writing.close_xml(output_file_pid)
-    # log_time
+    log_time
   end
 
   defp open_output_file(file) do
@@ -74,10 +71,18 @@ defmodule LocDrescher.CLI do
   end
 
   defp extend_timeframe?({:ok, last_update}, requested_offset) do
-    request = Timex.shift(Timex.now, days: -requested_offset)
+    request = Timex.shift(Timex.today, days: -requested_offset)
     case Timex.before?(last_update, request) do
-      true -> last_update
-      false -> request
+      true ->
+        Logger.info "Extending offset up to last successful update: " <>
+          "Harvesting every change since #{last_update}."
+        last_update
+      false ->
+        Logger.info "Applying requested offset of #{requested_offset} days: " <>
+          "Harvesting every change since #{request}."
+        request
+      default ->
+        IO.inspect default
     end
   end
 
@@ -89,8 +94,11 @@ defmodule LocDrescher.CLI do
   end
 
   defp log_time do
-    file_pid = open_output_file(@last_update_info)
-    IO.binwrite file_pid, Timex.format(Timex.now, "{ISO:Extended}")
+    {:ok, time } = Timex.format(Timex.now, "{ISO:Extended}")
+
+    @last_update_info
+    |> open_output_file
+    |> IO.binwrite(time)
   end
 
   defp print_help() do

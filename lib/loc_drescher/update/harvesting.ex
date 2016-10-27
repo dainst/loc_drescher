@@ -74,7 +74,7 @@ defmodule LocDrescher.Update.Harvesting do
   defp start_query(url, retry) do
     response =
       url # application/atom+xml
-      |> HTTPoison.get([], [ timeout: :infinity, recv_timeout: :infinity ])
+      |> HTTPoison.get([{"Content-Type", "text/xml;charset=utf-8"}], [ timeout: :infinity, recv_timeout: :infinity ])
 
     {url, response, retry }
   end
@@ -85,11 +85,19 @@ defmodule LocDrescher.Update.Harvesting do
     body
   end
 
-  defp handle_response({_url, { :ok, %HTTPoison.Response{
+  defp handle_response({ url, { :ok, %HTTPoison.Response{
       status_code: 404,
       body: _body,
-      headers: _headers} }, _retry }) do
-    { :error, 404 }
+      headers: _headers} }, retry }) do
+
+    if(retry > 0) do
+      url
+      |> start_query(retry - 1)
+      |> handle_response
+    else
+      Logger.error("404 Error for #{url}.")
+      { :error, 404 }
+    end
   end
 
   defp handle_response({_url, {:ok, %HTTPoison.Response{
@@ -99,18 +107,23 @@ defmodule LocDrescher.Update.Harvesting do
     { :error, 403 }
   end
 
-  defp handle_response({_url, { :ok, %HTTPoison.Response{
+  defp handle_response({url, { :ok, %HTTPoison.Response{
       status_code: 500,
       body: body,
-      headers: headers} }, _retry }) do
-    Logger.error "Status code 500 in response."
-    Logger.error "Headers:"
-    Logger.error  headers
-    Logger.error "Body:"
-    Logger.error  body
-    Logger.error "Stopping script..."
+      headers: headers} }, retry }) do
+    if(retry > 0) do
+      url
+      |> start_query(retry - 1)
+      |> handle_response
+    else
+      Logger.error "Status code 500 in response for #{url}"
+      Logger.error "Headers:"
+      IO.inspect  headers
+      Logger.error "Body:"
+      IO.inspect  body
+      { :error, 500 }
+    end
 
-    System.halt(0)
   end
 
   defp handle_response({url,
@@ -121,8 +134,8 @@ defmodule LocDrescher.Update.Harvesting do
       |> start_query(retry - 1)
       |> handle_response
     else
-      Logger.error "HTTPoison error: :closed, no more retries."
-      IO.inspect message
+      IO.inspect "HTTPoison error: :closed, no more retries."
+      IO.inspect error
       System.halt(0)
     end
   end

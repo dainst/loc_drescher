@@ -3,17 +3,24 @@
 use Mix.Config
 
 config :loc_drescher,
-  default_output_files:
+  output:
   %{
-    update: "./output/loc_update.mrc",
-    import: "./output/loc_import.mrc"
+    default_root: "./output/",
+    update:
+    [
+      { 100, "loc_update_personal_names.mrc" },
+      { 110, "loc_update_corporate_names.mrc" },
+      { 111, "loc_update_meeting_names.mrc" },
+      { 130, "loc_update_uniform_titles.mrc" }
+    ],
+    import: "loc_import.mrc",
+    last_update_info: "./log/last_successful_run.log"
   },
   subscribed_feeds:
   %{
     names: "http://id.loc.gov/authorities/names/feed/",
     subjects: "http://id.loc.gov/authorities/subjects/feed/"
-  },
-  last_update_info: "./loc_drescher.info"
+  }
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this

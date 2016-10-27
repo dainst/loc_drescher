@@ -3,8 +3,7 @@ defmodule LocDrescher.CLI do
 
   alias LocDrescher.Update
 
-  @default_output_files Application.get_env(:loc_drescher, :default_output_files)
-  @last_update_info Application.get_env(:loc_drescher, :last_update_info)
+  @output Application.get_env(:loc_drescher, :output)
 
   def main(argv) do
     argv
@@ -32,22 +31,32 @@ defmodule LocDrescher.CLI do
       { %{ target: target_path, days: days_offset}, ["update"], _ } ->
         start_update(target_path, days_offset)
       { %{ days: days_offset}, ["update"], _ } ->
-        start_update(@default_output_files[:update], days_offset)
+        start_update(@output[:default_root], days_offset)
       _ ->
         print_help
     end
   end
 
   defp start_update(file_path, days_offset) do
-    output_file_pid =
-      file_path
-      |> open_output_file
+    file_per_tag =
+      @output[:update]
+      |> Enum.map(fn({tag, file_name}) ->
+          {tag, "#{file_path}#{file_name}"}
+        end)
+      |> Enum.map(fn({tag, path}) ->
+          {tag, open_output_file(path)}
+        end)
+      |> IO.inspect
 
     Agent.start(fn ->
-      { output_file_pid }
+      { file_per_tag }
     end, name: OutputFile)
 
-    case File.read(@last_update_info) do
+    Agent.start(fn ->
+      { :update }
+    end, name: RequestType)
+
+    case File.read(@output[:last_update_info]) do
       {:ok, content} ->
         content
         |> Timex.parse("{ISO:Extended}")
@@ -87,7 +96,7 @@ defmodule LocDrescher.CLI do
   end
 
   defp extend_timeframe?({:error, message}, requested_offset) do
-    Logger.error "failed to parse #{@last_update_info}:"
+    Logger.error "failed to parse #{@output[:last_update_info]}:"
     Logger.error message
     Logger.error "requested offset was #{requested_offset}"
     System.halt()
@@ -96,13 +105,13 @@ defmodule LocDrescher.CLI do
   defp log_time do
     {:ok, time } = Timex.format(Timex.now, "{ISO:Extended}")
 
-    @last_update_info
+    @output[:last_update_info]
     |> open_output_file
     |> IO.binwrite(time)
   end
 
   defp print_help() do
-    u = @default_output_files[:update]
+    u = @output[:default_root]
 
     IO.puts "Usage: "
     IO.puts "1) ./loc_drescher update [options]"

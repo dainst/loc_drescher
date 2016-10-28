@@ -16,8 +16,9 @@ defmodule LocDrescher.Update.Writing do
       |> marcxml_to_marc
 
     file_pids
-    |> Enum.each(&IO.binwrite(&1, marc))
-
+    |> Enum.each(fn({tag, file_pid}) ->
+        IO.write(file_pid, marc)
+      end)
   end
 
   defp get_relevant_output_files(record, {:update}) do
@@ -34,8 +35,11 @@ defmodule LocDrescher.Update.Writing do
   end
 
   defp marcxml_to_marc(xml_record) do
-    xml_record
-    |> xpath(~x"./marcxml:controlfield[@tag='001']/text()")
+    control_number =
+      xml_record
+      |> xpath(~x"./marcxml:controlfield[@tag='001']/text()"s)
+
+    Logger.info "Processing record #{control_number}."
 
     record_status =
       xml_record
@@ -51,7 +55,7 @@ defmodule LocDrescher.Update.Writing do
       |> Enum.map(fn(field) ->
           %Field{
             tag: field |> xpath(~x"./@tag"),
-            controlfield_value: field |> xpath(~x"./text()")
+            controlfield_value: field |> xpath(~x"./text()"s)
           }
         end)
 
@@ -68,9 +72,9 @@ defmodule LocDrescher.Update.Writing do
               |> xpath(~x"./marcxml:subfield"l)
               |> Enum.map(fn(subfield) ->
                   code = subfield |> xpath(~x"./@code"s)
-                  value = subfield |> xpath(~x"./text()")
+                  value = subfield |> xpath(~x"./text()"s)
 
-                  {String.to_atom(code), value}
+                  { String.to_atom(code), value}
                 end)
             }
           end)

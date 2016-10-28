@@ -28,5 +28,5 @@ to its root directory and run `mix deps.get`.
 At this time, the only available `mode` is `update`, which harvests the update feeds provided by the Library of Congress (see [here](http://id.loc.gov/techcenter/)) and produces a single MARC21 output file. Different feeds can be subscribed to by changing the `./config/config.exs` file.
 
 #### Options
-* `-t | --target <target path>` for specifying the desired output directory and file. This is _optional_: Each `mode` defines a default directory and filename in `config/config.exs`.
+* `-t | --target <target path>` for specifying the desired output directory and file. This is _optional_: Each `mode` defines a default directory in `config/config.exs`.
 * `-d | --days <n days offset>`. _Required_ for `update`: Only updates that were added or changed in between now and the last _n_ days will be harvested, specified by the offset.

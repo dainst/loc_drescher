@@ -13,18 +13,25 @@ defmodule LocDrescher.Update.Harvesting do
         Logger.info("Harvesting feed for #{key}.")
         url
       end)
-    |> Enum.map(&Task.async(fn -> fetch_feed(&1, 1, from) end))
+    |> Enum.map(&Task.async(fn -> accumulate_changes(&1, 1, from, []) end))
     |> Enum.map(&Task.await(&1, :infinity))
+    |> Enum.reverse
+    |> Enum.each(&fetch_marcxml_records(&1))
   end
 
-  def fetch_feed(url, index, from) do
-    Logger.info ~s(Next page: #{"#{url}#{index}"})
+  def accumulate_changes(url, index, from, changes) do
+    Logger.info(~s(Next feed page: #{"#{url}#{index}"}))
     { relevant_changes, old_changes } =
       "#{url}#{index}"
       |> split_feed(from)
 
-    fetch_marcxml_records(relevant_changes)
-    next_feed_page?(index + 1, from, url, old_changes)
+    updated_changes = changes ++ relevant_changes
+
+    if old_changes == [] do
+      accumulate_changes(url, index + 1, from, updated_changes)
+    else
+      updated_changes
+    end
   end
 
   defp split_feed(url, from) do
@@ -51,8 +58,13 @@ defmodule LocDrescher.Update.Harvesting do
       end)
   end
 
+  defp fetch_marcxml_records([]) do
+    Logger.debug("No new records for feed.")
+  end
+
   defp fetch_marcxml_records(urls) do
     urls
+    |> Enum.reverse
     |> Stream.map(fn(%{link: link}) ->
         link
       end)
@@ -60,15 +72,6 @@ defmodule LocDrescher.Update.Harvesting do
     |> Enum.map(&Task.await(&1, :infinity))
     |> Stream.map(&handle_response(&1))
     |> Enum.map(&Writing.write_item_update(&1))
-  end
-
-  defp next_feed_page?(index, from, url,  []) do
-    fetch_feed(url, index, from)
-  end
-
-  defp next_feed_page?(index, _from, url, _old_changes) do
-    Logger.info("Reached old changes, stopping at: #{url}#{index - 1}")
-    { :ok, "top!" }
   end
 
   defp start_query(url, retry) do

@@ -39,7 +39,7 @@ defmodule LocDrescher.Update.Writing do
       xml_record
       |> xpath(~x"./marcxml:controlfield[@tag='001']/text()"s)
 
-    Logger.info "Processing record #{control_number}."
+    Logger.debug "Processing record #{control_number}."
 
     record_status =
       xml_record

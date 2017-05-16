@@ -9,6 +9,9 @@ defmodule LocDrescher.CLI do
     argv
     |> parse_args
     |> validate_request
+
+    log_time
+    Logger.info("Harvesting completed.")
   end
 
   defp parse_args(argv) do
@@ -46,7 +49,6 @@ defmodule LocDrescher.CLI do
       |> Enum.map(fn({tag, path}) ->
           {tag, open_output_file(path)}
         end)
-      |> IO.inspect
 
     Agent.start(fn ->
       { file_per_tag }
@@ -66,8 +68,6 @@ defmodule LocDrescher.CLI do
         Timex.shift(Timex.now, days: -days_offset)
         |> Update.Harvesting.start
     end
-
-    log_time
   end
 
   defp open_output_file(file) do

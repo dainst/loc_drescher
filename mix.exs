@@ -16,7 +16,7 @@ defmodule LocDrescher.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :httpoison, :timex, :logger_file_backend]]
+    [applications: [:logger, :httpoison, :logger_file_backend]]
   end
 
   # Dependencies can be Hex packages:
@@ -30,9 +30,8 @@ defmodule LocDrescher.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      { :httpoison, "~> 0.9.2" },
-      { :sweet_xml, "~> 0.6.2" },
-      { :timex, "~> 3.0" },
+      { :httpoison, "~> 1.1.1" },
+      { :sweet_xml, "~> 0.6.5" },
       { :logger_file_backend, "~> 0.0.9" }
     ]
   end

@@ -16,7 +16,7 @@ defmodule LocDrescher.Update.Writing do
       |> marcxml_to_marc
 
     file_pids
-    |> Enum.each(fn({tag, file_pid}) ->
+    |> Enum.each(fn({_tag, file_pid}) ->
         IO.write(file_pid, marc)
       end)
   end
@@ -25,7 +25,7 @@ defmodule LocDrescher.Update.Writing do
     { tags_to_output } = Agent.get(OutputFile, &(&1))
 
     tags_to_output
-    |> Enum.filter(fn({ tag, path }) ->
+    |> Enum.filter(fn({ tag, _path }) ->
         record |> xpath(~x"./marcxml:datafield[@tag='#{tag}']")
       end)
   end

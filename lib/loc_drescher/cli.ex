@@ -10,7 +10,7 @@ defmodule LocDrescher.CLI do
     |> parse_args
     |> validate_request
 
-    log_time
+    log_date()
     Logger.info("Harvesting completed.")
   end
 
@@ -30,13 +30,13 @@ defmodule LocDrescher.CLI do
   defp validate_request(argv) do
     case argv do
       { %{ help: true }, _, _ } ->
-        print_help
+        print_help()
       { %{ target: target_path, days: days_offset}, ["update"], _ } ->
         start_update(target_path, days_offset)
       { %{ days: days_offset}, ["update"], _ } ->
         start_update(@output[:default_root], days_offset)
       _ ->
-        print_help
+        print_help()
     end
   end
 
@@ -61,12 +61,14 @@ defmodule LocDrescher.CLI do
     case File.read(@output[:last_update_info]) do
       {:ok, content} ->
         content
-        |> Timex.parse("{ISO:Extended}")
+        |> Date.from_iso8601
         |> extend_timeframe?(days_offset)
         |> Update.Harvesting.start
       _ ->
-        Timex.shift(Timex.now, days: -days_offset)
-        |> Update.Harvesting.start
+        :calendar.local_time()
+          |> (fn({date, _time}) -> date end).()
+          |> Date.from_erl!
+          |> Update.Harvesting.start
     end
   end
 
@@ -80,18 +82,22 @@ defmodule LocDrescher.CLI do
   end
 
   defp extend_timeframe?({:ok, last_update}, requested_offset) do
-    request = Timex.shift(Timex.today, days: -requested_offset)
-    case Timex.before?(last_update, request) do
-      true ->
+
+    requested =
+      :calendar.local_time()
+      |> (fn({date, _time}) -> date end).()
+      |> Date.from_erl!
+      |> Date.add(-requested_offset)
+
+    case Date.compare(requested, last_update) do
+      :gt ->
         Logger.info "Extending offset up to last successful update: " <>
           "Harvesting every change since #{last_update}."
         last_update
-      false ->
+      _ ->
         Logger.info "Applying requested offset of #{requested_offset} days: " <>
-          "Harvesting every change since #{request}."
-        request
-      default ->
-        IO.inspect default
+          "Harvesting every change since #{requested}."
+        requested
     end
   end
 
@@ -102,12 +108,16 @@ defmodule LocDrescher.CLI do
     System.halt()
   end
 
-  defp log_time do
-    {:ok, time } = Timex.format(Timex.now, "{ISO:Extended}")
+  defp log_date do
+    out_str =
+      :calendar.universal_time()
+      |> (fn({date, _time}) -> date end).()
+      |> Date.from_erl!
+      |> Date.to_string
 
     @output[:last_update_info]
     |> open_output_file
-    |> IO.binwrite(time)
+    |> IO.binwrite(out_str)
   end
 
   defp print_help() do

@@ -14,7 +14,7 @@ config :loc_drescher,
       { 130, "loc_update_uniform_titles.mrc" }
     ],
     import: "loc_import.mrc",
-    last_update_info: "./log/last_successful_run.log"
+    last_update_info: "./log/last_run.log"
   },
   subscribed_feeds:
   %{

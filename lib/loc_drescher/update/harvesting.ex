@@ -7,34 +7,35 @@ defmodule LocDrescher.Update.Harvesting do
 
   @subscribed_feeds Application.get_env(:loc_drescher, :subscribed_feeds)
 
-  def start(from) do
+  def start(date_to) do
     @subscribed_feeds
     |> Stream.map(fn({key, url}) ->
         Logger.info("Harvesting feed for #{key}.")
         url
       end)
-    |> Enum.map(&Task.async(fn -> accumulate_changes(&1, 1, from, []) end))
+    |> Enum.map(&Task.async(fn -> accumulate_changes(&1, 1, date_to, []) end))
     |> Enum.map(&Task.await(&1, :infinity))
     |> Enum.reverse
     |> Enum.each(&fetch_marcxml_records(&1))
   end
 
-  def accumulate_changes(url, index, from, changes) do
+  def accumulate_changes(url, index, date_to, changes) do
     Logger.info(~s(Next feed page: #{"#{url}#{index}"}))
+
     { relevant_changes, old_changes } =
       "#{url}#{index}"
-      |> split_feed(from)
+      |> split_feed(date_to)
 
     updated_changes = changes ++ relevant_changes
 
     if old_changes == [] do
-      accumulate_changes(url, index + 1, from, updated_changes)
+      accumulate_changes(url, index + 1, date_to, updated_changes)
     else
       updated_changes
     end
   end
 
-  defp split_feed(url, from) do
+  defp split_feed(url, requested_date) do
     url
     |> start_query(2)
     |> handle_response
@@ -45,17 +46,31 @@ defmodule LocDrescher.Update.Harvesting do
           link: entry |> xpath(~x"./link[@type='application/marc+xml']/@href")
         }
       end)
-    |> Enum.split_while(fn(%{updated: updated, link: link}) ->
+    |> Enum.split_with(fn(%{updated: updated, link: link}) ->
         if link == nil do
           Logger.warn "No link type='application/marc+xml' found at #{link}!"
           false
         else
+
           updated
           |> to_string
-          |> Timex.parse!("%FT%T%:z", :strftime)
-          |> Timex.after?(from)
+          |> String.slice(0..9)
+          |> Date.from_iso8601!
+          |> later_than_requested_date?(requested_date)
         end
       end)
+  end
+
+
+  defp later_than_requested_date?(feed_date, requested_date) do
+    case Date.compare(feed_date, requested_date ) do
+      :gt ->
+        # IO.inspect("#{feed_date} still later than #{requested_date}")
+        true
+      _ ->
+        # IO.inspect("#{feed_date} earlier than #{requested_date}")
+        false
+    end
   end
 
   defp fetch_marcxml_records([]) do
@@ -74,10 +89,14 @@ defmodule LocDrescher.Update.Harvesting do
     |> Enum.map(&Writing.write_item_update(&1))
   end
 
+  # application
+
   defp start_query(url, retry) do
     response =
-      url # application/atom+xml
-      |> HTTPoison.get([{"Content-Type", "text/xml;charset=utf-8"}], [ timeout: :infinity, recv_timeout: :infinity ])
+      url
+      |> HTTPoison.get(
+           [{"Content-Type", "text/xml;charset=utf-8"}, {"Accept", "text/html,application/xhtml+xml,application/xml"}],
+           [ timeout: :infinity, recv_timeout: :infinity ])
 
     {url, response, retry }
   end
@@ -85,6 +104,7 @@ defmodule LocDrescher.Update.Harvesting do
   defp handle_response({_url,
       { :ok, %HTTPoison.Response{ status_code: 200, body: body} },
       _retry }) do
+
     body
   end
 

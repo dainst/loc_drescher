@@ -89,13 +89,15 @@ defmodule LocDrescher.Update.Harvesting do
     |> Enum.map(&Writing.write_item_update(&1))
   end
 
-  # application
 
   defp start_query(url, retry) do
     response =
       url
       |> HTTPoison.get(
-           [{"Content-Type", "text/xml;charset=utf-8"}, {"Accept", "text/html,application/xhtml+xml,application/xml"}],
+           [
+             {"Accept","application/xml"},
+             {"Cookie", "?"} # Some cookie has to be set in order to retrieve correct data, unclear why.
+           ],
            [ timeout: :infinity, recv_timeout: :infinity ])
 
     {url, response, retry }

@@ -15,7 +15,6 @@ defmodule LocDrescher.Update.Harvesting do
       end)
     |> Enum.map(&Task.async(fn -> accumulate_changes(&1, 1, date_to, []) end))
     |> Enum.map(&Task.await(&1, :infinity))
-    |> Enum.reverse
     |> Enum.each(&fetch_marcxml_records(&1))
   end
 
@@ -31,6 +30,7 @@ defmodule LocDrescher.Update.Harvesting do
     if old_changes == [] do
       accumulate_changes(url, index + 1, date_to, updated_changes)
     else
+      Logger.info("Found #{length(updated_changes)} changes for feed #{url}.")
       updated_changes
     end
   end
@@ -78,6 +78,8 @@ defmodule LocDrescher.Update.Harvesting do
   end
 
   defp fetch_marcxml_records(urls) do
+    Logger.info("Retrieving and processing changed MARC XML records. This may take some time...")
+
     urls
     |> Enum.reverse
     |> Stream.map(fn(%{link: link}) ->

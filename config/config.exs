@@ -28,7 +28,8 @@ config :logger,
     { LoggerFileBackend, :info_log },
     { LoggerFileBackend, :error_log },
     :console
-  ]
+  ],
+  compile_time_purge_level: :info
 
 # configuration for the {LoggerFileBackend, :error_log} backend
 config :logger, :error_log,

@@ -1,31 +1,42 @@
-# loc_drescher
-Harvesting application for authority records provided by the Library of Congress.
+## Prerequisites 
 
-## Prerequisites
-Elixir runs in the Erlang Virtual Machine (VM), for both see:
-* https://www.erlang-solutions.com/resources/download.html
+### Variant: Docker
+
+If you want to run the harvester with docker, there are no further prerequisites.
+
+### Variant: Elixir/Erlang installation
+
+
+Elixir runs in the Erlang Virtual Machine (VM), so you will need to install both Erlang and Elixir
+
+The development setup was done so far by simply running  `brew install erlang` and `brew install elixir` on Mac OS X and the `apt-get`-variants for Ubuntu/Debian.
+
+For further installation information and variants see:
+
 * http://www.erlang.org/downloads
 * http://elixir-lang.org/install.html
+* https://www.erlang-solutions.com/resources/download.html
 
-After having installed both Erlang and Elixir, check out the repository, switch
-to its root directory and run `mix deps.get`.
+
+After having installed both Erlang and Elixir, check out the repository, switch to its root directory and run `mix deps.get`.    
+
+[Mix](http://elixir-lang.org/getting-started/mix-otp/introduction-to-mix.html) is Elixir's package manager/build tool and should download everything automatically by reading the dependencies from  `mix.exs`.
+
 
 ## Usage
 
 ### Running the program
 
-#### (1) Using Mix:
+
+#### (1) Using Docker
+
+* Build the image: `docker build -t dainst/loc_drescher .`.
+* Run the script: `docker run -v <Repository Path>/output:/loc_drescher/output dainst/loc_drescher <mix command, see (2)>`.
+
+#### (2) Using Mix:
 * In the root directory, run `mix run lib/loc_drescher.exs <mode> [options]`.
 * This is the easiest way to run the application during development.
-
-#### (2) Compilation using [escript](http://elixir-lang.org/docs/master/mix/Mix.Tasks.Escript.Build.html):
-* In the root directory, run `mix escript.build`.
-* This compiles the application into a single executable called `loc_drescher`.
-* The executable can be started like any command line application:
-`./loc_drescher <mode> [options]`.
-* Any machine that has the Erlang Virtual Machine installed can run the executable.
-
-At this time, the only available `mode` is `update`, which harvests the update feeds provided by the Library of Congress (see [here](http://id.loc.gov/techcenter/)) and produces a single MARC21 output file. Different feeds can be subscribed to by changing the `./config/config.exs` file.
+ only available `mode` is `update`, which harvests the update feeds provided by the Library of Congress (see [here](http://id.loc.gov/techcenter/)) and produces a single MARC21 output file. Different feeds can be subscribed to by changing the `./config/config.exs` file.
 
 #### Options
 * `-t | --target <target path>` for specifying the desired output directory and file. This is _optional_: Each `mode` defines a default directory in `config/config.exs`.

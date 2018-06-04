@@ -8,8 +8,7 @@ defmodule LocDrescher.Mixfile do
       elixir: "~> 1.3",
       build_embedded: Mix.env == :prod,
       start_permanent: Mix.env == :prod,
-      deps: deps(),
-      escript: escript
+      deps: deps()
    ]
   end
 
@@ -18,10 +17,6 @@ defmodule LocDrescher.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     [applications: [:logger, :httpoison, :timex, :logger_file_backend]]
-  end
-
-  def escript do
-    [ main_module: LocDrescher.CLI ]
   end
 
   # Dependencies can be Hex packages:

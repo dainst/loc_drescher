@@ -6,71 +6,98 @@ defmodule LocDrescher.CLI do
   @output Application.get_env(:loc_drescher, :output)
 
   def main(argv) do
-    argv
-    |> parse_args
-    |> validate_request
+    result = argv
+      |> parse_args
+      |> case do
+           { %{ help: true }, _, _ } ->
+             print_help()
+           { switches, ["update"], _ } ->
+             start_update(switches)
+           _ ->
+             print_help()
+         end
 
-    log_date()
-    Logger.info("Harvesting completed.")
+    case result do
+      {:error, message} ->
+        Logger.error(message)
+      {:help, message} ->
+        Logger.info(message)
+      {:ok, message} ->
+        log_date()
+        Logger.info(message)
+     end
+
   end
 
   defp parse_args(argv) do
     { switches, argv, errors } =
       OptionParser.parse(argv,
-        switches: [ help: :boolean,
+        switches: [
+          help: :boolean,
           target: :string,
-          days: :integer],
-        aliases:  [ h: :help,
+          days: :integer,
+          continue: :boolean
+        ],
+        aliases: [
+          h: :help,
           t: :target,
-          d: :days]
+          d: :days,
+          c: :continue
+        ]
       )
     { Enum.into(switches, %{}), argv, errors }
   end
 
-  defp validate_request(argv) do
-    case argv do
-      { %{ help: true }, _, _ } ->
-        print_help()
-      { %{ target: target_path, days: days_offset}, ["update"], _ } ->
-        start_update(target_path, days_offset)
-      { %{ days: days_offset}, ["update"], _ } ->
-        start_update(@output[:default_root], days_offset)
-      _ ->
-        print_help()
-    end
+  defp start_update(%{ target: target_path, days: days_offset}) do
+    initialize_agents(target_path, :update)
+
+    :calendar.local_time()
+    |> (fn({date, _time}) -> date end).()
+    |> Date.from_erl!
+    |> Date.add(-days_offset)
+    |> Update.Harvesting.start
   end
 
-  defp start_update(file_path, days_offset) do
-    file_per_tag =
-      @output[:update]
-      |> Enum.map(fn({tag, file_name}) ->
-          {tag, "#{file_path}#{file_name}"}
-        end)
-      |> Enum.map(fn({tag, path}) ->
-          {tag, open_output_file(path)}
-        end)
+  defp start_update(%{ days: days_offset}) do
+    start_update(%{target: @output[:default_root], days: days_offset})
+  end
 
-    Agent.start(fn ->
-      { file_per_tag }
-    end, name: OutputFile)
-
-    Agent.start(fn ->
-      { :update }
-    end, name: RequestType)
+  defp start_update( %{ target: target_path, continue: true}) do
+    initialize_agents(target_path, :update)
 
     case File.read(@output[:last_update_info]) do
       {:ok, content} ->
         content
         |> Date.from_iso8601
-        |> extend_timeframe?(days_offset)
+        |> (fn({:ok, date}) -> date end).()
         |> Update.Harvesting.start
       _ ->
-        :calendar.local_time()
-          |> (fn({date, _time}) -> date end).()
-          |> Date.from_erl!
-          |> Update.Harvesting.start
+        { :error, message: "No valid date to continue from." }
     end
   end
+
+  defp start_update( %{ continue: true}) do
+    start_update(%{target: @output[:default_root], continue: true})
+  end
+
+  defp start_update(_) do
+    print_help()
+  end
+
+  defp initialize_agents(output_path, request_type) do
+    file_per_tag =
+      @output[request_type]
+      |> Enum.map(fn({tag, file_name}) ->
+        {tag, "#{output_path}#{file_name}"}
+      end)
+      |> Enum.map(fn({tag, path}) ->
+        {tag, open_output_file(path)}
+      end)
+
+    Agent.start(fn -> { file_per_tag } end, name: OutputFile)
+    Agent.start(fn -> { request_type } end, name: RequestType)
+  end
+
 
   defp open_output_file(file) do
     file
@@ -79,33 +106,6 @@ defmodule LocDrescher.CLI do
 
     file
       |> File.open!([:write, :utf8])
-  end
-
-  defp extend_timeframe?({:ok, last_update}, requested_offset) do
-
-    requested =
-      :calendar.local_time()
-      |> (fn({date, _time}) -> date end).()
-      |> Date.from_erl!
-      |> Date.add(-requested_offset)
-
-    case Date.compare(requested, last_update) do
-      :gt ->
-        Logger.info "Extending offset up to last successful update: " <>
-          "Harvesting every change since #{last_update}."
-        last_update
-      _ ->
-        Logger.info "Applying requested offset of #{requested_offset} days: " <>
-          "Harvesting every change since #{requested}."
-        requested
-    end
-  end
-
-  defp extend_timeframe?({:error, message}, requested_offset) do
-    Logger.error "failed to parse #{@output[:last_update_info]}:"
-    Logger.error message
-    Logger.error "requested offset was #{requested_offset}"
-    System.halt()
   end
 
   defp log_date do
@@ -121,13 +121,15 @@ defmodule LocDrescher.CLI do
   end
 
   defp print_help() do
-    u = @output[:default_root]
+      u = @output[:default_root]
 
-    IO.puts "Usage: "
-    IO.puts "1) ./loc_drescher update [options]"
-    IO.puts "         -d | --days <number> (required, the number of days back" <>
-            " still considered for the running update )"
-    IO.puts "         -t | --target <output path> (optional, defaults to #{u})"
-    System.halt(0)
+      message =
+        """
+        Usage:
+        1) ./loc_drescher update [options]
+            -d | --days <number> (required, the number of days back still considered for the running update )
+            -t | --target <output path> (optional, defaults to #{u})
+        """
+      {:help, message}
   end
 end

@@ -6,11 +6,7 @@ If you want to run the harvester with docker, there are no further prerequisites
 
 ### Variant: Elixir/Erlang installation
 
-
 Elixir runs in the Erlang Virtual Machine (VM), so you will need to install both Erlang and Elixir
-
-The development setup was done so far by simply running  `brew install erlang` and `brew install elixir` on Mac OS X 
-and the `apt-get`-variants for Ubuntu/Debian.
 
 For further installation information and variants see:
 
@@ -18,18 +14,15 @@ For further installation information and variants see:
 * http://elixir-lang.org/install.html
 * https://www.erlang-solutions.com/resources/download.html
 
-
 After having installed both Erlang and Elixir, check out the repository, switch to its root directory and run 
 `mix deps.get`.    
 
 [Mix](http://elixir-lang.org/getting-started/mix-otp/introduction-to-mix.html) is Elixir's package manager/build tool 
 and should download everything automatically by reading the dependencies from  `mix.exs`.
 
-
 ## Usage
 
 ### Running the program
-
 
 #### (1) Using Docker
 
@@ -45,7 +38,7 @@ and should download everything automatically by reading the dependencies from  `
  by changing the `./config/config.exs` file.
 
 #### Options
-* `-t | --target <target path>` for specifying the desired output directory and file. This is _optional_: Each `mode` 
-defines a default directory in `config/config.exs`.
-* `-d | --days <n days offset>`. _Required_ for `update`: Only updates that were added or changed in between now and 
+* `-t | --target <target path>` for specifying the desired output directory. This is _optional_. Each `mode` 
+defines default filenames in `config/config.exs`.
+* `-d | --days <n days offset>`. _Required_ for `update`: Only records that were added or changed in between now and 
 the last _n_ days will be harvested, specified by the offset.

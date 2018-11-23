@@ -8,6 +8,9 @@ defmodule LocDrescher.Update.Harvesting do
   @subscribed_feeds Application.get_env(:loc_drescher, :subscribed_feeds)
 
   def start(date_to) do
+
+    Logger.info("Start date for harvesting: #{date_to}.")
+
     @subscribed_feeds
     |> Stream.map(fn({key, url}) ->
         Logger.info("Harvesting feed for #{key}.")
@@ -16,6 +19,8 @@ defmodule LocDrescher.Update.Harvesting do
     |> Enum.map(&Task.async(fn -> accumulate_changes(&1, 1, date_to, []) end))
     |> Enum.map(&Task.await(&1, :infinity))
     |> Enum.each(&fetch_marcxml_records(&1))
+
+    {:ok, "Finished harvest."}
   end
 
   def accumulate_changes(url, index, date_to, changes) do
@@ -106,16 +111,14 @@ defmodule LocDrescher.Update.Harvesting do
   end
 
   defp handle_response({_url,
-      { :ok, %HTTPoison.Response{ status_code: 200, body: body} },
-      _retry }) do
-
+    { :ok, %HTTPoison.Response{ status_code: 200, body: body} },
+    _retry }) do
     body
   end
 
-  defp handle_response({ url, { :ok, %HTTPoison.Response{
-      status_code: 404,
-      body: _body,
-      headers: _headers} }, retry }) do
+  defp handle_response({ url,
+    { :ok, %HTTPoison.Response{ status_code: 404, body: _body, headers: _headers} },
+    retry }) do
 
     if(retry > 0) do
       url

@@ -1,4 +1,5 @@
-# Deprecated: https://github.com/dainst/marc_authority_harvester
+# Deprecated 
+See: https://github.com/dainst/marc_authority_harvester
 
 ## Prerequisites 
 

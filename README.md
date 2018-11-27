@@ -1,3 +1,5 @@
+# Deprecated: https://github.com/dainst/marc_authority_harvester
+
 ## Prerequisites 
 
 ### Variant: Docker
